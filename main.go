@@ -44,14 +44,14 @@ func main() {
 		Handler: mux,
 	}
 	
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
 
-	mux.HandleFunc("/metrics", cfg.displayMetrics)
-	mux.HandleFunc("/reset", cfg.resetMetrics)
+	mux.HandleFunc("GET /metrics", cfg.displayMetrics)
+	mux.HandleFunc("POST /reset", cfg.resetMetrics)
 
 
 	log.Printf("Serving files from %s on port: %s\n", filepathRoot, port)
