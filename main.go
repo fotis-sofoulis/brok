@@ -24,8 +24,16 @@ func (cfg *apiConfig) middlewareMetricIncrease(next http.Handler) http.Handler {
 }
 
 func (cfg *apiConfig) displayMetrics(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	fmt.Fprintf(w, "Hits: %d", cfg.fileServerHits.Load())
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	html := fmt.Sprintf(`
+		<html>
+		  <body>
+			<h1>Welcome, Chirpy Admin</h1>
+			<p>Chirpy has been visited %d times!</p>
+		  </body>
+		</html>
+		`, cfg.fileServerHits.Load())
+	w.Write([]byte(html))
 } 
 
 func (cfg *apiConfig) resetMetrics(w http.ResponseWriter, r *http.Request) {
@@ -50,8 +58,8 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	mux.HandleFunc("GET /api/metrics", cfg.displayMetrics)
-	mux.HandleFunc("POST /api/reset", cfg.resetMetrics)
+	mux.HandleFunc("GET /admin/metrics", cfg.displayMetrics)
+	mux.HandleFunc("POST /admin/reset", cfg.resetMetrics)
 
 
 	log.Printf("Serving files from %s on port: %s\n", filepathRoot, port)
