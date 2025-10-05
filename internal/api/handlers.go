@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync/atomic"
 )
 
@@ -48,5 +49,18 @@ func (cfg *ApiConfig) ValidateChirp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	RespondWithJSON(w, http.StatusOK, CleanedResp{Cleaned: ""})
+	badWords := map[string]struct{} {
+		"kerfuffle": {},
+		"sharbert":  {},
+		"fornax":    {},
+	}
+	message := strings.Split(params.Body, " ")
+
+	for i, word := range message {
+		if _, exists := badWords[strings.ToLower(word)]; exists {
+			message[i] = "****"
+		}
+	}
+
+	RespondWithJSON(w, http.StatusOK, CleanedResp{Cleaned: strings.Join(message, " ")})
 }
