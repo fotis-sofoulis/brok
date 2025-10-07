@@ -25,6 +25,14 @@ type User struct {
 		Email     string `json:"email"`
 }
 
+type Chirp struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Body      string	`json:"body"`
+		UserID    uuid.UUID `json:"user_id"`
+}
+
 func (cfg *ApiConfig) DisplayMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	html := fmt.Sprintf(`
@@ -52,16 +60,22 @@ func (cfg *ApiConfig) ResetUsers(w http.ResponseWriter, r *http.Request) {
 	RespondWithJSON(w, http.StatusOK, "Users table reset successfully")
 }
 
-func (cfg *ApiConfig) ValidateChirp(w http.ResponseWriter, r *http.Request) {
+func (cfg *ApiConfig) CreateChirp(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	type parameters struct {
 		Body string `json:"body"`
+		UserID uuid.UUID `json:"user_id"`
 	}
 
 	var params parameters
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
 		RespondWithError(w, http.StatusBadRequest, "Something went wrong")
+		return
+	}
+
+	if params.UserID == uuid.Nil {
+		RespondWithError(w, http.StatusBadRequest, "User ID is required")
 		return
 	}
 
@@ -82,8 +96,27 @@ func (cfg *ApiConfig) ValidateChirp(w http.ResponseWriter, r *http.Request) {
 			message[i] = "****"
 		}
 	}
+	
+	args := database.CreateChirpParams {
+		Body: strings.Join(message, " "),
+		UserID: params.UserID,
+	}
 
-	RespondWithJSON(w, http.StatusOK, CleanedResp{Cleaned: strings.Join(message, " ")})
+	chirp, err := cfg.DB.CreateChirp(r.Context(), args)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to create the chirp")
+		return
+	}
+
+	resp := Chirp {
+		ID: chirp.ID,
+		CreatedAt: chirp.CreatedAt,
+		UpdatedAt: chirp.UpdatedAt,
+		Body: chirp.Body,
+		UserID: chirp.UserID,
+	}
+
+	RespondWithJSON(w, http.StatusCreated, resp)
 }
 
 func (cfg *ApiConfig) CreateUser(w http.ResponseWriter, r *http.Request) {

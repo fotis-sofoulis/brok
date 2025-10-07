@@ -9,10 +9,6 @@ type ErrorResp struct {
 	Error string `json:"error"`
 }
 
-type CleanedResp struct {
-	Cleaned string `json:"cleaned_body"`
-}
-
 func RespondWithError(w http.ResponseWriter, code int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)

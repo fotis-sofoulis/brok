@@ -47,7 +47,8 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	mux.HandleFunc("POST /api/validate_chirp", cfg.ValidateChirp)
+	mux.HandleFunc("POST /api/chirps", cfg.CreateChirp)
+	// mux.HandleFunc("GET /api/chirps", cfg.GetAllChirps)
 	mux.HandleFunc("POST /api/users", cfg.CreateUser)
 	mux.HandleFunc("GET /admin/metrics", cfg.DisplayMetrics)
 	mux.HandleFunc("POST /admin/reset", cfg.ResetUsers)
