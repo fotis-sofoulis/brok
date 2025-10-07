@@ -60,6 +60,33 @@ func (cfg *ApiConfig) ResetUsers(w http.ResponseWriter, r *http.Request) {
 	RespondWithJSON(w, http.StatusOK, "Users table reset successfully")
 }
 
+func (cfg *ApiConfig) CreateUser(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Email string `json:"email"`
+	}
+
+	var params parameters
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	user, err := cfg.DB.CreateUser(r.Context(), params.Email)
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Failed to create user")
+		return
+	}
+
+	resp := User{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	}
+
+	RespondWithJSON(w, http.StatusCreated, resp)
+}
+
 func (cfg *ApiConfig) CreateChirp(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
@@ -119,29 +146,24 @@ func (cfg *ApiConfig) CreateChirp(w http.ResponseWriter, r *http.Request) {
 	RespondWithJSON(w, http.StatusCreated, resp)
 }
 
-func (cfg *ApiConfig) CreateUser(w http.ResponseWriter, r *http.Request) {
-	type parameters struct {
-		Email string `json:"email"`
-	}
 
-	var params parameters
-	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
-		return
-	}
-
-	user, err := cfg.DB.CreateUser(r.Context(), params.Email)
+func (cfg *ApiConfig) GetAllChirps(w http.ResponseWriter, r *http.Request) {
+	chirps, err := cfg.DB.GetChirps(r.Context())
 	if err != nil {
-		RespondWithError(w, http.StatusBadRequest, "Failed to create user")
+		RespondWithError(w, http.StatusBadGateway, "Failed to get chirps")
 		return
 	}
 
-	resp := User{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email:     user.Email,
+	resp := make([]Chirp, len(chirps))
+	for i, chirp := range chirps {
+		resp[i] = Chirp{
+			ID: chirp.ID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			Body: chirp.Body,
+			UserID: chirp.UserID,
+		}
 	}
 
-	RespondWithJSON(w, http.StatusCreated, resp)
+	RespondWithJSON(w, http.StatusOK, resp)
 }
