@@ -6,10 +6,13 @@ import (
 	"net/http"
 	"strings"
 	"sync/atomic"
+
+	"github.com/fotis-sofoulis/brok/internal/database"
 )
 
 type ApiConfig struct {
 	FileServerHits atomic.Int32
+	DB			   *database.Queries
 }
 
 

@@ -1,10 +1,16 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
+	"os"
+
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 
 	"github.com/fotis-sofoulis/brok/internal/api"
+	"github.com/fotis-sofoulis/brok/internal/database"
 )
 
 const (
@@ -13,8 +19,18 @@ const (
 )
 
 func main() {
+	godotenv.Load()
+	dbURL := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		return
+	}
+	dbQueries := database.New(db)
+
 	mux := http.NewServeMux()
-	cfg := &api.ApiConfig{}
+	cfg := &api.ApiConfig{
+		DB: dbQueries,
+	}
 	appHandler :=  http.StripPrefix("/app/", http.FileServer(http.Dir(filepathRoot)))
 	mux.Handle("/app/", cfg.MiddlewareMetricIncrease(appHandler))
 
