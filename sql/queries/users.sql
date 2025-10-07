@@ -7,3 +7,7 @@ VALUES (
     $1
 )
 RETURNING *;
+
+-- name: DropUsers :exec
+TRUNCATE TABLE users RESTART IDENTITY CASCADE;
+

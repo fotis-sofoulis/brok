@@ -6,15 +6,24 @@ import (
 	"net/http"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/fotis-sofoulis/brok/internal/database"
+	"github.com/google/uuid"
 )
 
 type ApiConfig struct {
 	FileServerHits atomic.Int32
-	DB			   *database.Queries
+	DB             *database.Queries
+	Platform       string
 }
 
+type User struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Email     string `json:"email"`
+}
 
 func (cfg *ApiConfig) DisplayMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -27,11 +36,20 @@ func (cfg *ApiConfig) DisplayMetrics(w http.ResponseWriter, r *http.Request) {
 		</html>
 		`, cfg.FileServerHits.Load())
 	w.Write([]byte(html))
-} 
+}
 
-func (cfg *ApiConfig) ResetMetrics(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	cfg.FileServerHits.Swap(0)
+func (cfg *ApiConfig) ResetUsers(w http.ResponseWriter, r *http.Request) {
+	if cfg.Platform != "dev" {
+		RespondWithError(w, http.StatusForbidden, "Not allowed in this environment")
+		return
+	}
+
+	if err := cfg.DB.DropUsers(r.Context()); err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed reseting the users table")
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, "Users table reset successfully")
 }
 
 func (cfg *ApiConfig) ValidateChirp(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +70,7 @@ func (cfg *ApiConfig) ValidateChirp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	badWords := map[string]struct{} {
+	badWords := map[string]struct{}{
 		"kerfuffle": {},
 		"sharbert":  {},
 		"fornax":    {},
@@ -66,4 +84,31 @@ func (cfg *ApiConfig) ValidateChirp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	RespondWithJSON(w, http.StatusOK, CleanedResp{Cleaned: strings.Join(message, " ")})
+}
+
+func (cfg *ApiConfig) CreateUser(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Email string `json:"email"`
+	}
+
+	var params parameters
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	user, err := cfg.DB.CreateUser(r.Context(), params.Email)
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Failed to create user")
+		return
+	}
+
+	resp := User{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	}
+
+	RespondWithJSON(w, http.StatusCreated, resp)
 }
