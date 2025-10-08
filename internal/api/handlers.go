@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/fotis-sofoulis/brok/internal/auth"
 	"github.com/fotis-sofoulis/brok/internal/database"
 	"github.com/google/uuid"
 )
@@ -64,6 +65,7 @@ func (cfg *ApiConfig) ResetUsers(w http.ResponseWriter, r *http.Request) {
 func (cfg *ApiConfig) CreateUser(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Email string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	var params parameters
@@ -72,7 +74,18 @@ func (cfg *ApiConfig) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := cfg.DB.CreateUser(r.Context(), params.Email)
+	hashedPassword, err := auth.HashPassword(params.Password)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Fail to create password hash")
+		return
+	}
+
+	args := database.CreateUserParams {
+		Email: params.Email,
+		HashedPassword: hashedPassword,	
+	}
+
+	user, err := cfg.DB.CreateUser(r.Context(), args)
 	if err != nil {
 		RespondWithError(w, http.StatusBadRequest, "Failed to create user")
 		return
@@ -193,6 +206,50 @@ func (cfg *ApiConfig) GetChirpById(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt: chirp.UpdatedAt,
 		Body: chirp.Body,
 		UserID: chirp.UserID,
+	}
+
+	RespondWithJSON(w, http.StatusOK, resp)
+}
+
+func (cfg *ApiConfig) LoginUser(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Password string `json:"password"`
+		Email string `json:"email"`
+	}
+
+	var params parameters
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	user, err := cfg.DB.GetUserByEmail(r.Context(), params.Email)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			RespondWithError(w, http.StatusUnauthorized, "Email does not exist")
+			return
+		}
+
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get user by email")
+		return
+	}
+
+	if user.Email != params.Email {
+		RespondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
+		return
+	}
+
+	ok, err := auth.CheckPasswordHash(params.Password, user.HashedPassword)
+	if err != nil || !ok {
+		RespondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
+		return
+	}
+
+	resp := User{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
 	}
 
 	RespondWithJSON(w, http.StatusOK, resp)
