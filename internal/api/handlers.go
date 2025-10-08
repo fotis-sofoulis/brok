@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -150,7 +151,7 @@ func (cfg *ApiConfig) CreateChirp(w http.ResponseWriter, r *http.Request) {
 func (cfg *ApiConfig) GetAllChirps(w http.ResponseWriter, r *http.Request) {
 	chirps, err := cfg.DB.GetChirps(r.Context())
 	if err != nil {
-		RespondWithError(w, http.StatusBadGateway, "Failed to get chirps")
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get chirps")
 		return
 	}
 
@@ -163,6 +164,35 @@ func (cfg *ApiConfig) GetAllChirps(w http.ResponseWriter, r *http.Request) {
 			Body: chirp.Body,
 			UserID: chirp.UserID,
 		}
+	}
+
+	RespondWithJSON(w, http.StatusOK, resp)
+}
+
+func (cfg *ApiConfig) GetChirpById(w http.ResponseWriter, r *http.Request) {
+	chirpID, err := uuid.Parse(r.PathValue("chirpID"))
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid chirp ID")
+		return
+	}
+	
+	chirp, err := cfg.DB.GetChirpById(r.Context(), chirpID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			RespondWithError(w, http.StatusNotFound, "Chirp not found")
+			return
+		}
+
+		RespondWithError(w, http.StatusInternalServerError, "Failed to retrieve chirp")
+		return
+	}
+
+	resp := Chirp {
+		ID: chirp.ID,
+		CreatedAt: chirp.CreatedAt,
+		UpdatedAt: chirp.UpdatedAt,
+		Body: chirp.Body,
+		UserID: chirp.UserID,
 	}
 
 	RespondWithJSON(w, http.StatusOK, resp)
